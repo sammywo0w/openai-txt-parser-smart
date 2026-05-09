@@ -14,9 +14,9 @@ except ImportError:
     PyPDF2 = None
 
 try:
-    from docx import Document
+    import docx2txt
 except ImportError:
-    Document = None
+    docx2txt = None
 
 
 class DocumentParser:
@@ -44,23 +44,12 @@ class DocumentParser:
     
     def parse_docx(self, file_path: str) -> str:
         """Парсит DOCX файл"""
-        if Document is None:
-            raise ImportError("python-docx не установлен. Установите: pip install python-docx")
-        
-        text = []
+        if docx2txt is None:
+            raise ImportError("docx2txt не установлен. Установите: pip install docx2txt")
+
         try:
-            doc = Document(file_path)
-            for paragraph in doc.paragraphs:
-                if paragraph.text.strip():
-                    text.append(paragraph.text)
-            
-            # Добавляем таблицы если есть
-            for table in doc.tables:
-                for row in table.rows:
-                    row_text = [cell.text for cell in row.cells]
-                    text.append(" | ".join(row_text))
-            
-            return "\n".join(text)
+            content = docx2txt.process(file_path) or ""
+            return content
         except Exception as e:
             raise Exception(f"Ошибка при парсинге DOCX: {str(e)}")
     

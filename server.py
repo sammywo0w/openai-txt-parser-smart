@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import tempfile
 from pathlib import Path
 import os
+import shutil
 from parser import DocumentParser
 import logging
 
@@ -52,10 +53,11 @@ def read_root():
 @app.get("/health")
 def health_check():
     """Проверка здоровья сервиса"""
+    disk = shutil.disk_usage(TEMP_DIR)
     return {
         "status": "ok",
         "temp_dir": str(TEMP_DIR),
-        "disk_free": os.statvfs(TEMP_DIR).f_bavail * os.statvfs(TEMP_DIR).f_frsize
+        "disk_free": disk.free
     }
 
 
@@ -67,6 +69,7 @@ async def convert_file(file: UploadFile = File(...)):
     Returns:
         JSON с путём к сконвертированному файлу и содержимым
     """
+    input_path = None
     try:
         # Валидируем расширение файла
         file_ext = Path(file.filename).suffix.lower()
@@ -108,7 +111,7 @@ async def convert_file(file: UploadFile = File(...)):
     
     finally:
         # Очищаем исходный файл
-        if input_path.exists():
+        if input_path and input_path.exists():
             input_path.unlink()
 
 
@@ -117,6 +120,7 @@ async def convert_and_download(file: UploadFile = File(...)):
     """
     Конвертирует файл и возвращает готовый TXT для скачивания
     """
+    input_path = None
     try:
         file_ext = Path(file.filename).suffix.lower()
         supported = ['.pdf', '.docx', '.txt']
@@ -152,7 +156,7 @@ async def convert_and_download(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=str(e))
     
     finally:
-        if input_path.exists():
+        if input_path and input_path.exists():
             input_path.unlink()
 
 
@@ -225,4 +229,4 @@ async def batch_convert(files: list[UploadFile] = File(...)):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", "8000")))
