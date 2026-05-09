@@ -8,7 +8,6 @@ import tempfile
 from pathlib import Path
 import os
 import shutil
-from parser import DocumentParser
 import logging
 
 # Логирование
@@ -33,6 +32,16 @@ app.add_middleware(
 # Создаём временную директорию для файлов
 TEMP_DIR = Path(tempfile.gettempdir()) / "openai_parser"
 TEMP_DIR.mkdir(exist_ok=True)
+
+
+def build_parser():
+    """Ленивая загрузка парсера, чтобы не падать на старте сервиса."""
+    try:
+        from parser import DocumentParser
+        return DocumentParser(output_dir=str(TEMP_DIR))
+    except Exception as e:
+        logger.exception("Не удалось инициализировать DocumentParser")
+        raise HTTPException(status_code=500, detail=f"Parser init error: {str(e)}")
 
 
 @app.get("/")
@@ -88,7 +97,7 @@ async def convert_file(file: UploadFile = File(...)):
             f.write(content)
         
         # Парсим файл
-        parser = DocumentParser(output_dir=str(TEMP_DIR))
+        parser = build_parser()
         output_path = parser.convert(str(input_path), output_file=None)
         
         # Читаем результат
@@ -138,7 +147,7 @@ async def convert_and_download(file: UploadFile = File(...)):
             f.write(content)
         
         # Парсим файл
-        parser = DocumentParser(output_dir=str(TEMP_DIR))
+        parser = build_parser()
         output_path = parser.convert(str(input_path), output_file=None)
         
         logger.info(f"✅ Файл {file.filename} готов к скачиванию")
@@ -190,7 +199,7 @@ async def batch_convert(files: list[UploadFile] = File(...)):
                 with open(input_path, 'wb') as f:
                     f.write(content)
                 
-                parser = DocumentParser(output_dir=str(TEMP_DIR))
+                parser = build_parser()
                 output_path = parser.convert(str(input_path), output_file=None)
                 
                 with open(output_path, 'r', encoding='utf-8') as f:
