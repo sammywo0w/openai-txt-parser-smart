@@ -156,8 +156,7 @@ async def convert_and_download(file: UploadFile = File(...)):
         return FileResponse(
             output_path,
             media_type='text/plain',
-            filename=Path(output_path).name,
-            headers={"Content-Disposition": f"attachment; filename={Path(output_path).name}"}
+            filename=Path(output_path).name
         )
     
     except Exception as e:
