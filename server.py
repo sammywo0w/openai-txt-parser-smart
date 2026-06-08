@@ -9,6 +9,8 @@ from pathlib import Path
 import os
 import shutil
 import logging
+import json
+import base64
 
 # Логирование
 logging.basicConfig(level=logging.INFO)
@@ -53,6 +55,7 @@ def read_root():
         "endpoints": {
             "convert": "POST /convert",
             "convert_and_download": "POST /convert-download",
+            "convert_download_json": "POST /convert-download-json",
             "health": "GET /health",
             "docs": "GET /docs"
         }
@@ -166,6 +169,72 @@ async def convert_and_download(file: UploadFile = File(...)):
     finally:
         if input_path and input_path.exists():
             input_path.unlink()
+
+
+@app.post("/convert-download-json")
+async def convert_download_json(file: UploadFile = File(...)):
+    """
+    Конвертирует файл и возвращает:
+    - TXT как base64 (для передачи как файл)
+    - Полный распарсенный текст
+    - Экранированный текст для безопасной вставки в JSON
+    """
+    input_path = None
+    output_path = None
+    try:
+        file_ext = Path(file.filename).suffix.lower()
+        supported = ['.pdf', '.docx', '.txt']
+
+        if file_ext not in supported:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Формат {file_ext} не поддерживается. Поддерживаются: {', '.join(supported)}"
+            )
+
+        # Сохраняем загруженный файл
+        input_path = TEMP_DIR / file.filename
+        content = await file.read()
+        with open(input_path, 'wb') as f:
+            f.write(content)
+
+        # Парсим файл
+        parser = build_parser()
+        output_path = parser.convert(str(input_path), output_file=None)
+        output_name = Path(output_path).name
+
+        # Читаем текст и файл
+        with open(output_path, 'r', encoding='utf-8') as f:
+            text_content = f.read()
+
+        with open(output_path, 'rb') as f:
+            txt_bytes = f.read()
+
+        # Готовим экранированную строку для JSON-полей
+        escaped_with_quotes = json.dumps(text_content, ensure_ascii=False)
+
+        logger.info(f"✅ Файл {file.filename} готов в JSON-формате с файлом и текстом")
+
+        return {
+            "status": "success",
+            "original_file": file.filename,
+            "output_file": output_name,
+            "mime_type": "text/plain",
+            "size_chars": len(text_content),
+            "content": text_content,
+            "content_json_escaped": escaped_with_quotes,
+            "content_json_escaped_raw": escaped_with_quotes[1:-1],
+            "file_base64": base64.b64encode(txt_bytes).decode('ascii')
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Ошибка: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+    finally:
+        if input_path and input_path.exists():
+            input_path.unlink()
+        if output_path and Path(output_path).exists():
+            Path(output_path).unlink()
 
 
 @app.post("/batch")
