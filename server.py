@@ -85,7 +85,7 @@ async def convert_file(file: UploadFile = File(...)):
     try:
         # Валидируем расширение файла
         file_ext = Path(file.filename).suffix.lower()
-        supported = ['.pdf', '.docx', '.txt']
+        supported = ['.pdf', '.docx', '.doc', '.txt']
         
         if file_ext not in supported:
             raise HTTPException(
@@ -135,7 +135,7 @@ async def convert_and_download(file: UploadFile = File(...)):
     input_path = None
     try:
         file_ext = Path(file.filename).suffix.lower()
-        supported = ['.pdf', '.docx', '.txt']
+        supported = ['.pdf', '.docx', '.doc', '.txt']
         
         if file_ext not in supported:
             raise HTTPException(
@@ -183,7 +183,7 @@ async def convert_download_json(file: UploadFile = File(...)):
     output_path = None
     try:
         file_ext = Path(file.filename).suffix.lower()
-        supported = ['.pdf', '.docx', '.txt']
+        supported = ['.pdf', '.docx', '.doc', '.txt']
 
         if file_ext not in supported:
             raise HTTPException(
@@ -252,7 +252,7 @@ async def batch_convert(files: list[UploadFile] = File(...)):
         for file in files:
             try:
                 file_ext = Path(file.filename).suffix.lower()
-                supported = ['.pdf', '.docx', '.txt']
+                supported = ['.pdf', '.docx', '.doc', '.txt']
                 
                 if file_ext not in supported:
                     errors.append({

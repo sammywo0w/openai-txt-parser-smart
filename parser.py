@@ -3,6 +3,7 @@ OpenAI TXT Parser - конвертирует PDF, DOCX и другие форм�
 """
 import os
 import sys
+import subprocess
 from pathlib import Path
 from typing import Optional
 import click
@@ -53,6 +54,23 @@ class DocumentParser:
         except Exception as e:
             raise Exception(f"Ошибка при парсинге DOCX: {str(e)}")
     
+    def parse_doc(self, file_path: str) -> str:
+        """Парсит старый .doc (Word 97-2003) через antiword"""
+        try:
+            result = subprocess.run(
+                ["antiword", "-m", "UTF-8.txt", file_path],
+                capture_output=True,
+                check=True,
+            )
+            return result.stdout.decode("utf-8", errors="replace")
+        except FileNotFoundError:
+            raise Exception(
+                "antiword не установлен. Добавьте 'antiword' в Dockerfile (apt-get install antiword)"
+            )
+        except subprocess.CalledProcessError as e:
+            stderr = e.stderr.decode("utf-8", errors="replace").strip()
+            raise Exception(f"Ошибка при парсинге DOC: {stderr or 'antiword вернул ошибку'}")
+
     def parse_txt(self, file_path: str) -> str:
         """Читает TXT файл"""
         try:
@@ -91,6 +109,8 @@ class DocumentParser:
             content = self.parse_pdf(file_path)
         elif extension == '.docx':
             content = self.parse_docx(file_path)
+        elif extension == '.doc':
+            content = self.parse_doc(file_path)
         elif extension == '.txt':
             content = self.parse_txt(file_path)
         else:
@@ -127,7 +147,7 @@ class DocumentParser:
             raise NotADirectoryError(f"Это не директория: {input_dir}")
         
         # Поддерживаемые форматы
-        supported_formats = ['*.pdf', '*.docx', '*.txt']
+        supported_formats = ['*.pdf', '*.docx', '*.doc', '*.txt']
         
         files_to_process = []
         if pattern:
